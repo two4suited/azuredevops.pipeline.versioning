@@ -1,0 +1,40 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: Bash@3
+  displayName: 'Output to Console'
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo "Hello from Azure DevOps Pipeline!"
+      echo "Current date and time: $(date)"
+      echo "Running on: $(uname -a)"
+      echo "Working directory: $(pwd)"
+      echo "Pipeline build number: $(Build.BuildNumber)"
+      echo "Build source branch: $(Build.SourceBranchName)"
+      
+- task: Bash@3
+  displayName: 'Display Environment Variables'
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo "=== Environment Variables ==="
+      echo "Agent Name: $AGENT_NAME"
+      echo "Build Definition Name: $BUILD_DEFINITIONNAME"
+      echo "Build Reason: $BUILD_REASON"
+      echo "Source Directory: $BUILD_SOURCESDIRECTORY"
+      
+- task: Bash@3
+  displayName: 'Custom Script with Colors'
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo -e "\033[32m✓ This is green text - Success!\033[0m"
+      echo -e "\033[33m⚠ This is yellow text - Warning!\033[0m"
+      echo -e "\033[34mℹ This is blue text - Info!\033[0m"
+      echo -e "\033[31m✗ This is red text - Error simulation!\033[0m"
+      echo -e "\033[0mBack to normal text"

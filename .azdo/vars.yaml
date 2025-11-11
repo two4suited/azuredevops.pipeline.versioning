@@ -1,0 +1,20 @@
+variables:
+  # Version Components
+  major: 1
+  minor: 0
+  revision: 0
+  
+  # Composite Version Numbers
+  version: '$(major).$(minor).$(revision)'
+  semanticVersion: '$(major).$(minor).$(revision)'
+  
+  # Build-specific version (includes build number)
+  buildVersion: '$(major).$(minor).$(revision).$(Build.BuildNumber)'
+  
+  # Pre-release version support
+  preRelease: ''  # Set to '-alpha', '-beta', '-rc1', etc. for pre-release versions
+  fullVersion: '$(major).$(minor).$(revision)$(preRelease)'
+  
+  # Assembly version (for .NET projects)
+  assemblyVersion: '$(major).$(minor).0.0'
+  fileVersion: '$(major).$(minor).$(revision).$(Build.BuildNumber)'

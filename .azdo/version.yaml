@@ -1,0 +1,122 @@
+trigger: none  # Manual trigger only for versioning
+
+variables:
+- template: vars.yaml
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+  persistCredentials: true
+  clean: true
+
+- task: Bash@3
+  displayName: 'Setup Git Configuration'
+  inputs:
+    targetType: 'inline'
+    script: |
+      git config user.name "Azure DevOps Pipeline"
+      git config user.email "noreply@azuredevops.com"
+      
+- task: Bash@3
+  displayName: 'Prepare Version Variables'
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo "Current version: $(version)"
+      echo "Major version: $(major)"
+      echo "Full version tag: v$(version)"
+      echo "Major branch: v$(major).latest"
+      
+      # Set variables for subsequent steps
+      echo "##vso[task.setvariable variable=versionTag]v$(version)"
+      echo "##vso[task.setvariable variable=majorBranch]v$(major).latest"
+
+- task: Bash@3
+  displayName: 'Check if Tag Already Exists'
+  inputs:
+    targetType: 'inline'
+    script: |
+      if git tag -l | grep -q "^v$(version)$"; then
+        echo "##vso[task.logissue type=error]Tag v$(version) already exists!"
+        echo "##vso[task.complete result=Failed;]Tag already exists"
+        exit 1
+      else
+        echo "Tag v$(version) does not exist, proceeding..."
+      fi
+
+- task: Bash@3
+  displayName: 'Delete Existing Major Version Branch'
+  inputs:
+    targetType: 'inline'
+    script: |
+      MAJOR_BRANCH="v$(major).latest"
+      
+      # Check if branch exists locally
+      if git branch --list | grep -q "$MAJOR_BRANCH"; then
+        echo "Deleting local branch: $MAJOR_BRANCH"
+        git branch -D "$MAJOR_BRANCH"
+      fi
+      
+      # Check if branch exists on remote
+      if git ls-remote --heads origin "$MAJOR_BRANCH" | grep -q "$MAJOR_BRANCH"; then
+        echo "Deleting remote branch: $MAJOR_BRANCH"
+        git push origin --delete "$MAJOR_BRANCH"
+      else
+        echo "Remote branch $MAJOR_BRANCH does not exist"
+      fi
+
+- task: Bash@3
+  displayName: 'Create Version Tag'
+  inputs:
+    targetType: 'inline'
+    script: |
+      VERSION_TAG="v$(version)"
+      
+      echo "Creating tag: $VERSION_TAG"
+      git tag -a "$VERSION_TAG" -m "Version $(version) - Created by Azure DevOps Pipeline"
+      
+      echo "Pushing tag to remote..."
+      git push origin "$VERSION_TAG"
+      
+      echo "✓ Successfully created and pushed tag: $VERSION_TAG"
+
+- task: Bash@3
+  displayName: 'Create Major Version Branch'
+  inputs:
+    targetType: 'inline'
+    script: |
+      MAJOR_BRANCH="v$(major).latest"
+      
+      echo "Creating branch: $MAJOR_BRANCH"
+      git checkout -b "$MAJOR_BRANCH"
+      
+      echo "Pushing branch to remote..."
+      git push -u origin "$MAJOR_BRANCH"
+      
+      echo "✓ Successfully created and pushed branch: $MAJOR_BRANCH"
+      
+      # Switch back to main branch
+      git checkout main
+
+- task: Bash@3
+  displayName: 'Version Summary'
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo "=================================="
+      echo "         VERSION SUMMARY          "
+      echo "=================================="
+      echo "Created Tag: v$(version)"
+      echo "Created Branch: v$(major).latest"
+      echo "Source Branch: $(Build.SourceBranchName)"
+      echo "Build Number: $(Build.BuildNumber)"
+      echo "=================================="
+      
+      echo "Available tags:"
+      git tag --sort=-version:refname | head -10
+      
+      echo ""
+      echo "Available branches matching v*.latest:"
+      git branch -r | grep "v.*\.latest" || echo "No version branches found"
