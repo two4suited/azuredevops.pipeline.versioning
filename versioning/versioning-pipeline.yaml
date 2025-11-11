@@ -7,7 +7,7 @@ trigger:
     - versioning/versioning.yaml
 
 variables:
-- template: vars.yaml
+- template: versioning.yaml
 
 pool:
   vmImage: 'ubuntu-latest'
