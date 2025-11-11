@@ -33,11 +33,11 @@ steps:
       echo "Current version: $(version)"
       echo "Major version: $(major)"
       echo "Full version tag: v$(version)"
-      echo "Major branch: v$(major).latest"
+      echo "Major branch: releases/v$(major).latest"
       
       # Set variables for subsequent steps
       echo "##vso[task.setvariable variable=versionTag]v$(version)"
-      echo "##vso[task.setvariable variable=majorBranch]v$(major).latest"
+      echo "##vso[task.setvariable variable=majorBranch]releases/v$(major).latest"
 
 - task: Bash@3
   displayName: 'Check if Tag Already Exists'
@@ -45,19 +45,21 @@ steps:
     targetType: 'inline'
     script: |
       if git tag -l | grep -q "^v$(version)$"; then
-        echo "##vso[task.logissue type=error]Tag v$(version) already exists!"
-        echo "##vso[task.complete result=Failed;]Tag already exists"
-        exit 1
+        echo "##vso[task.logissue type=warning]Tag v$(version) already exists! Skipping versioning tasks."
+        echo "##vso[task.setvariable variable=shouldSkip]true"
+        echo "##vso[task.setvariable variable=skipReason]Tag v$(version) already exists"
       else
-        echo "Tag v$(version) does not exist, proceeding..."
+        echo "Tag v$(version) does not exist, proceeding with versioning..."
+        echo "##vso[task.setvariable variable=shouldSkip]false"
       fi
 
 - task: Bash@3
   displayName: 'Delete Existing Major Version Branch'
+  condition: and(succeeded(), ne(variables['shouldSkip'], 'true'))
   inputs:
     targetType: 'inline'
     script: |
-      MAJOR_BRANCH="v$(major).latest"
+      MAJOR_BRANCH="releases/v$(major).latest"
       
       # Check if branch exists locally
       if git branch --list | grep -q "$MAJOR_BRANCH"; then
@@ -75,6 +77,7 @@ steps:
 
 - task: Bash@3
   displayName: 'Create Version Tag'
+  condition: and(succeeded(), ne(variables['shouldSkip'], 'true'))
   inputs:
     targetType: 'inline'
     script: |
@@ -90,10 +93,11 @@ steps:
 
 - task: Bash@3
   displayName: 'Create Major Version Branch'
+  condition: and(succeeded(), ne(variables['shouldSkip'], 'true'))
   inputs:
     targetType: 'inline'
     script: |
-      MAJOR_BRANCH="v$(major).latest"
+      MAJOR_BRANCH="releases/v$(major).latest"
       
       echo "Creating branch: $MAJOR_BRANCH"
       git checkout -b "$MAJOR_BRANCH"
@@ -114,8 +118,18 @@ steps:
       echo "=================================="
       echo "         VERSION SUMMARY          "
       echo "=================================="
-      echo "Created Tag: v$(version)"
-      echo "Created Branch: v$(major).latest"
+      
+      if [ "$(shouldSkip)" = "true" ]; then
+        echo "⚠️  VERSIONING SKIPPED"
+        echo "Reason: $(skipReason)"
+        echo "Target Version: v$(version)"
+        echo "Target Branch: releases/v$(major).latest"
+      else
+        echo "✅ VERSIONING COMPLETED"
+        echo "Created Tag: v$(version)"
+        echo "Created Branch: releases/v$(major).latest"
+      fi
+      
       echo "Source Branch: $(Build.SourceBranchName)"
       echo "Build Number: $(Build.BuildNumber)"
       echo "=================================="
@@ -124,5 +138,5 @@ steps:
       git tag --sort=-version:refname | head -10
       
       echo ""
-      echo "Available branches matching v*.latest:"
-      git branch -r | grep "v.*\.latest" || echo "No version branches found"
+      echo "Available branches matching releases/v*.latest:"
+      git branch -r | grep "releases/v.*\.latest" || echo "No release version branches found"
