@@ -1,4 +1,10 @@
-trigger: none  # Manual trigger only for versioning
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - versioning/versioning.yaml
 
 variables:
 - template: vars.yaml
